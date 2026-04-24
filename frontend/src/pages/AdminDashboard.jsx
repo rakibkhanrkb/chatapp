@@ -56,7 +56,7 @@ export default function AdminDashboard() {
     e.preventDefault();
     setUpdateLoading(true);
     try {
-      await axios.put(`https://chatapp-812b.onrender.com/api/admin/users/${editingUser.id}`, editForm, { headers: { 'x-user-id': currentUser.id } });
+      await axios.put('https://chatapp-812b.onrender.com/api/admin/users/${editingUser.id}', editForm, { headers: { 'x-user-id': currentUser.id } });
       
       // লোকাল স্টেট আপডেট করা
       setUsers(users.map(u => u.id === editingUser.id ? { 
@@ -79,7 +79,7 @@ export default function AdminDashboard() {
   async function deleteUser(id, name) {
     if (!window.confirm(`আপনি কি সত্যিই ${name} কে মুছে ফেলতে চান? এটি আর ফিরিয়ে আনা যাবে না।`)) return;
     try {
-      await axios.delete(`https://chatapp-812b.onrender.com/api/admin/users/${id}`, { headers: { 'x-user-id': currentUser.id } });
+      await axios.delete('https://chatapp-812b.onrender.com/api/admin/users/${id}', { headers: { 'x-user-id': currentUser.id } });
       setUsers(users.filter(u => u.id !== id));
     } catch (err) { alert('Failed to delete: ' + (err.response?.data?.error || err.message)); }
   }
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
   async function deleteGlobalMessage(id) {
     if (!window.confirm("আপনি কি মেসেজটি স্থায়ীভাবে মুছে ফেলতে চান?")) return;
     try {
-      await axios.delete(`https://chatapp-812b.onrender.com/api/admin/messages/${id}`, { headers: { 'x-user-id': currentUser.id } });
+      await axios.delete('https://chatapp-812b.onrender.com/api/admin/messages/${id}', { headers: { 'x-user-id': currentUser.id } });
       setAllMessages(allMessages.filter(m => m.id !== id));
     } catch (err) { alert('Failed to delete message'); }
   }
