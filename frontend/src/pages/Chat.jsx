@@ -6,7 +6,9 @@ import FileUploadButton from '../components/FileUploadButton';
 import CreateGroupModal from '../components/CreateGroupModal';
 import CallModal from '../components/CallModal';
 
-const socket = io('https://chatapp-812b.onrender.com');
+// আপনার রেন্ডার লিংক
+const BACKEND_URL = 'https://chatapp-812b.onrender.com';
+const socket = io(BACKEND_URL);
 
 export default function Chat() {
   const user = JSON.parse(localStorage.getItem('user'));
@@ -35,7 +37,6 @@ export default function Chat() {
   const messagesEndRef = useRef(null);
   const typingTimeout = useRef(null);
 
-  // Main Socket & Data Load Effect (Runs once)
   useEffect(() => {
     socket.emit('user_online', user.id);
     loadConversations();
@@ -62,9 +63,8 @@ export default function Chat() {
     socket.on('group_message_deleted', ({ messageId }) => setMessages(prev => prev.filter(m => m.id !== messageId)));
 
     return () => socket.off();
-  }, []); // <-- [] করে দেওয়া হয়েছে যাতে সাজেস্ট লিস্ট গায়েব না হয়
+  }, []);
 
-  // Typing Effect (Depends on activeConv)
   useEffect(() => {
     const handleUserTyping = ({ conversationId }) => { if (activeConv?.id === conversationId) setTyping(true); };
     const handleUserStopTyping = () => setTyping(false);
@@ -80,57 +80,29 @@ export default function Chat() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
 
-  async function loadConversations() { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/conversations/${user.id}'); setConversations(data); }
-  async function loadGroups() { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/groups/my/${user.id}'); setGroups(data); }
-  async function loadSuggestedUsers() { try { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users'); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
-  async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users?q=${q}'); setSearchResults(data.filter(u => u.id !== user.id)); }
+  async function loadConversations() { const { data } = await axios.get(`${BACKEND_URL}/api/messages/conversations/${user.id}`); setConversations(data); }
+  async function loadGroups() { const { data } = await axios.get(`${BACKEND_URL}/api/groups/my/${user.id}`); setGroups(data); }
+  async function loadSuggestedUsers() { try { const { data } = await axios.get(`${BACKEND_URL}/api/messages/users`); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
+  async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get(`${BACKEND_URL}/api/messages/users?q=${q}`); setSearchResults(data.filter(u => u.id !== user.id)); }
 
- // --- DIRECT CHAT OPEN FUNCTION ---
   async function openDirectChat(otherUser) {
-    setSearchQuery(''); 
-    setSearchResults([]); 
-    setActiveGroup(null); 
-    setActiveUser(otherUser);
-    
+    setSearchQuery(''); setSearchResults([]); setActiveGroup(null); setActiveUser(otherUser);
     try {
-      // 1. Get or Create Conversation
-      const { data: conv } = await axios.post('https://chatapp-812b.onrender.com/api/messages/conversation', { 
-        user1Id: user.id, 
-        user2Id: otherUser.id 
-      });
+      const { data: conv } = await axios.post(`${BACKEND_URL}/api/messages/conversation`, { user1Id: user.id, user2Id: otherUser.id });
       setActiveConv(conv);
-      
-      // 2. Fetch all previous messages from Database
-      const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/messages/${conv.id}`); 
-      
-      // 3. Set the messages to the screen
-      setMessages(msgs); 
-      
-      // 4. Update the sidebar list
+      const { data: msgs } = await axios.get(`${BACKEND_URL}/api/messages/messages/${conv.id}`); setMessages(msgs); 
       loadConversations();
-    } catch (err) {
-      console.error("Error opening chat:", err);
-    }
+    } catch (err) { console.error("Error opening chat:", err); }
   }
 
-  // --- GROUP CHAT OPEN FUNCTION ---
   async function openGroupChat(group) {
-    setActiveConv(null); 
-    setActiveUser(null); 
-    setActiveGroup(group);
-    
+    setActiveConv(null); setActiveUser(null); setActiveGroup(group);
     try {
       socket.emit('join_group', group.id);
-      
-      // Fetch all previous group messages from Database
-      const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/groups/${group.id}/messages`); 
-      
-      // Set the messages to the screen
-      setMessages(msgs);
-    } catch (err) {
-      console.error("Error opening group chat:", err);
-    }
+      const { data: msgs } = await axios.get(`${BACKEND_URL}/api/groups/${group.id}/messages`); setMessages(msgs);
+    } catch (err) { console.error("Error opening group chat:", err); }
   }
+
   function handleTyping() {
     if (!activeConv) return;
     socket.emit('typing', { conversationId: activeConv.id, senderId: user.id, receiverId: activeUser?.id });
@@ -151,10 +123,10 @@ export default function Chat() {
     if (!window.confirm("আপনি কি সত্যিই এই মেসেজটি মুছে ফেলতে চান?")) return;
     try {
       if (activeConv) {
-        await axios.delete('https://chatapp-812b.onrender.com/api/messages/${msg.id}');
+        await axios.delete(`${BACKEND_URL}/api/messages/${msg.id}`);
         socket.emit('delete_message', { messageId: msg.id, receiverId: activeUser?.id });
       } else if (activeGroup) {
-        await axios.delete('https://chatapp-812b.onrender.com/api/groups/messages/${msg.id}');
+        await axios.delete(`${BACKEND_URL}/api/groups/messages/${msg.id}`);
         socket.emit('delete_group_message', { messageId: msg.id, groupId: activeGroup.id });
       }
       setMessages(messages.filter(m => m.id !== msg.id));
@@ -170,16 +142,17 @@ export default function Chat() {
   const isMe = (msg) => msg.sender_id === user.id;
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-0 sm:p-4 lg:p-6 relative">
+    // FIX 1: h-screen এর বদলে h-[100dvh] ব্যবহার করা হয়েছে আইফোনের জন্য
+    <div className="flex h-[100dvh] bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-0 sm:p-4 lg:p-6 relative overflow-hidden">
       
       {(callState?.isReceivingCall || callState?.isInitiatingCall) && <CallModal {...callState} remoteUser={activeUser} currentUser={user} socket={socket} onCallEnd={() => setCallState({ isReceivingCall: false, isInitiatingCall: false, callerSignal: null })} />}
       {showGroupModal && <CreateGroupModal currentUser={{ id: user.id }} onClose={() => setShowGroupModal(false)} onCreated={(g) => { setGroups(prev => [g, ...prev]); setTab('groups'); }} />}
 
-      <div className="flex w-full h-full bg-white/80 backdrop-blur-xl sm:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-white/50 overflow-hidden relative">
+      <div className="flex w-full h-full bg-white/80 backdrop-blur-xl sm:rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:border border-white/50 overflow-hidden relative pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         
         {/* SIDEBAR */}
-        <div className={`w-full md:w-[340px] bg-white/60 flex-col border-r border-gray-100/50 backdrop-blur-md transition-all duration-300 ${(activeConv || activeGroup) ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 sm:p-5 border-b border-gray-100/50 flex flex-col gap-4">
+        <div className={`w-full md:w-[340px] bg-white/60 flex-col border-r border-gray-100/50 backdrop-blur-md transition-all duration-300 ${(activeConv || activeGroup) ? 'hidden md:flex' : 'flex'} h-full`}>
+          <div className="p-4 sm:p-5 border-b border-gray-100/50 flex flex-col gap-4 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-200 shrink-0">{user.profile?.full_name?.[0]}</div>
@@ -198,9 +171,10 @@ export default function Chat() {
           <div className="p-4 border-b border-gray-100/50 shrink-0">
             {tab === 'direct' ? (
               <div className="relative">
-                <input placeholder="🔍 Search users..." value={searchQuery} onChange={e => searchUsers(e.target.value)} className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all placeholder:text-gray-400" />
+                {/* FIX 2: text-[16px] for iPhone to prevent zoom */}
+                <input placeholder="🔍 Search users..." value={searchQuery} onChange={e => searchUsers(e.target.value)} className="w-full bg-white border border-gray-200 rounded-2xl px-5 py-3 text-[16px] md:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 shadow-sm transition-all placeholder:text-gray-400" />
                 {searchResults?.length > 0 && (
-                  <div className="absolute top-14 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden border border-gray-100 z-20 max-h-60 overflow-y-auto">
+                  <div className="absolute top-14 left-0 right-0 bg-white/95 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden border border-gray-100 z-20 max-h-60 overflow-y-auto overscroll-contain">
                     {searchResults.map(u => (
                       <div key={u.id} onClick={() => openDirectChat(u)} className="flex items-center gap-3 p-3 hover:bg-indigo-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0">
                         <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">{u.full_name?.[0]}</div>
@@ -211,16 +185,16 @@ export default function Chat() {
                   </div>
                 )}
               </div>
-            ) : (<button onClick={() => setShowGroupModal(true)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-2xl text-sm font-bold hover:shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all shadow-md">+ Create Group</button>)}
+            ) : (<button onClick={() => setShowGroupModal(true)} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-2xl text-[16px] md:text-sm font-bold hover:shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all shadow-md">+ Create Group</button>)}
           </div>
 
-          <div className="flex-1 overflow-y-auto scrollbar-hide p-2 sm:p-3">
+          <div className="flex-1 overflow-y-auto scrollbar-hide overscroll-contain p-2 sm:p-3 pb-[env(safe-area-inset-bottom)]">
             
             {/* SUGGESTED USERS */}
             {tab === 'direct' && !searchQuery && suggestedUsers?.length > 0 && (
               <div className="mb-5">
                 <p className="px-3 text-[11px] font-extrabold text-slate-400 mb-3 uppercase tracking-wider">Suggestions</p>
-                <div className="flex overflow-x-auto gap-3 px-2 pb-2 scrollbar-hide">
+                <div className="flex overflow-x-auto gap-3 px-2 pb-2 scrollbar-hide overscroll-contain">
                   {suggestedUsers.map(u => (
                     <div key={u.id} onClick={() => openDirectChat(u)} className="flex flex-col items-center gap-1.5 cursor-pointer min-w-[70px] group">
                       <div className="relative">
@@ -236,6 +210,7 @@ export default function Chat() {
               </div>
             )}
 
+            {/* RECENT DIRECT CHATS */}
             {tab === 'direct' && conversations.map(conv => {
               const other = getOtherUser(conv);
               return (
@@ -246,6 +221,7 @@ export default function Chat() {
               );
             })}
 
+            {/* GROUPS */}
             {tab === 'groups' && groups.map(group => (
               <div key={group.id} onClick={() => openGroupChat(group)} className={`flex items-center gap-3 p-3 mb-1.5 rounded-2xl cursor-pointer transition-all border border-transparent ${activeGroup?.id === group.id ? 'bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] border-gray-100' : 'hover:bg-white/50'}`}>
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-bold text-lg shadow-sm shrink-0">👥</div>
@@ -257,45 +233,44 @@ export default function Chat() {
 
         {/* CHAT WINDOW */}
         {(activeConv || activeGroup) ? (
-          <div className="flex-1 flex flex-col bg-white/40 relative h-full">
+          <div className="flex-1 flex flex-col bg-white/40 relative h-full w-full">
             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none z-0"></div>
 
-            <div className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 p-3 sm:p-5 flex items-center justify-between z-10 shrink-0">
+            <div className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 p-3 flex items-center justify-between z-10 shrink-0 h-[70px]">
               <div className="flex items-center gap-3 sm:gap-4">
                 <button onClick={() => { setActiveConv(null); setActiveGroup(null); setActiveUser(null); }} className="md:hidden p-2 -ml-2 text-slate-500 hover:text-indigo-600 rounded-full hover:bg-slate-100 transition-colors">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
                 </button>
                 {activeConv ? (
-                  <><div className="relative shrink-0"><div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold shadow-sm">{activeUser?.full_name?.[0]}</div>{activeUser?.is_online && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white" />}</div>
-                  <div className="min-w-0"><p className="font-bold text-gray-800 truncate sm:text-lg max-w-[150px] sm:max-w-xs">{activeUser?.full_name}</p><p className="text-xs font-medium text-indigo-500">{activeUser?.is_online ? '🟢 Online' : '⚫ Offline'}</p></div></>
+                  <><div className="relative shrink-0"><div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold shadow-sm">{activeUser?.full_name?.[0]}</div>{activeUser?.is_online && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white" />}</div>
+                  <div className="min-w-0"><p className="font-bold text-gray-800 truncate text-[15px] sm:text-lg max-w-[150px] sm:max-w-xs">{activeUser?.full_name}</p><p className="text-xs font-medium text-indigo-500">{activeUser?.is_online ? '🟢 Online' : '⚫ Offline'}</p></div></>
                 ) : (
-                  <><div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-bold text-xl shadow-sm shrink-0">👥</div>
-                  <div className="min-w-0"><p className="font-bold text-gray-800 truncate sm:text-lg max-w-[150px] sm:max-w-xs">{activeGroup?.name}</p><p className="text-xs font-medium text-gray-500 truncate max-w-[150px] sm:max-w-xs">{activeGroup?.description || 'Group chat'}</p></div></>
+                  <><div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center text-purple-700 font-bold text-xl shadow-sm shrink-0">👥</div>
+                  <div className="min-w-0"><p className="font-bold text-gray-800 truncate text-[15px] sm:text-lg max-w-[150px] sm:max-w-xs">{activeGroup?.name}</p><p className="text-xs font-medium text-gray-500 truncate max-w-[150px] sm:max-w-xs">{activeGroup?.description || 'Group chat'}</p></div></>
                 )}
               </div>
               {activeConv && (
-                <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                  <button onClick={() => startCall('audio')} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shadow-sm border border-slate-100 sm:text-xl">📞</button>
-                  <button onClick={() => startCall('video')} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shadow-sm border border-slate-100 sm:text-xl">📹</button>
+                <div className="flex items-center gap-1 sm:gap-3 shrink-0">
+                  <button onClick={() => startCall('audio')} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shadow-sm border border-slate-100 text-lg sm:text-xl">📞</button>
+                  <button onClick={() => startCall('video')} className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-white hover:bg-indigo-50 flex items-center justify-center text-slate-500 hover:text-indigo-600 transition-all shadow-sm border border-slate-100 text-lg sm:text-xl">📹</button>
                 </div>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 z-10 scrollbar-hide">
+            {/* FIX 4: overscroll-contain ensures bouncy iOS scroll doesn't break the layout */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 z-10 overscroll-contain">
               {messages.map((msg, i) => {
                 const mine = isMe(msg);
                 return (
                   <div key={msg.id || i} className={`group flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
                     {activeGroup && !mine && <p className="text-[10px] sm:text-xs text-indigo-500 font-bold mb-1 ml-1">{msg.sender?.full_name}</p>}
                     
-                    {/* Message Bubble */}
                     <div className={`max-w-[85%] sm:max-w-[75%] lg:max-w-[60%] px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-2xl sm:rounded-3xl ${mine ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-br-sm shadow-md shadow-indigo-200/50' : 'bg-white text-gray-800 rounded-bl-sm shadow-[0_4px_15px_rgb(0,0,0,0.03)] border border-gray-100'}`}>
-                      {msg.message_type === 'text' || !msg.message_type ? <p className="text-sm sm:text-[15px] leading-relaxed break-words">{msg.content}</p> : <FileMessage fileUrl={msg.file_url} fileType={msg.file_type} fileName={msg.file_name} isMe={mine} />}
-                      {msg.content && msg.message_type !== 'text' && <p className="text-sm sm:text-[15px] leading-relaxed mt-2 break-words">{msg.content}</p>}
+                      {msg.message_type === 'text' || !msg.message_type ? <p className="text-[15px] leading-relaxed break-words">{msg.content}</p> : <FileMessage fileUrl={msg.file_url} fileType={msg.file_type} fileName={msg.file_name} isMe={mine} />}
+                      {msg.content && msg.message_type !== 'text' && <p className="text-[15px] leading-relaxed mt-2 break-words">{msg.content}</p>}
                       <p className={`text-[9px] sm:text-[10px] font-medium mt-1.5 text-right ${mine ? 'text-indigo-200' : 'text-gray-400'}`}>{formatTime(msg.created_at)}</p>
                     </div>
 
-                    {/* Delete Button (Hover to reveal below the message) */}
                     {(mine || user.profile?.role === 'admin') && msg.id && (
                       <button 
                         onClick={() => handleDeleteMessage(msg)} 
@@ -314,21 +289,25 @@ export default function Chat() {
             </div>
 
             {pendingFile && (
-              <div className="bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4 z-10 shadow-[0_-4px_20px_rgb(0,0,0,0.02)]">
-                {pendingFile.type.startsWith('image/') ? <img src={pendingFile.url} alt="preview" className="h-12 w-12 sm:h-14 sm:w-14 object-cover rounded-xl shadow-sm border border-gray-200" /> : <div className="h-12 w-12 sm:h-14 sm:w-14 bg-indigo-50 rounded-xl flex items-center justify-center text-xl sm:text-2xl border border-indigo-100">📎</div>}
-                <div className="flex-1 min-w-0"><p className="text-xs sm:text-sm font-bold text-gray-800 truncate">{pendingFile.name}</p><p className="text-[10px] sm:text-xs font-medium text-indigo-500">Ready to send</p></div>
-                <button onClick={() => setPendingFile(null)} className="w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-500 rounded-full transition-colors font-bold text-sm">✕</button>
+              <div className="bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 py-2 flex items-center gap-3 z-10 shadow-[0_-4px_20px_rgb(0,0,0,0.02)]">
+                {pendingFile.type.startsWith('image/') ? <img src={pendingFile.url} alt="preview" className="h-10 w-10 object-cover rounded-xl shadow-sm border border-gray-200" /> : <div className="h-10 w-10 bg-indigo-50 rounded-xl flex items-center justify-center text-xl border border-indigo-100">📎</div>}
+                <div className="flex-1 min-w-0"><p className="text-xs font-bold text-gray-800 truncate">{pendingFile.name}</p></div>
+                <button onClick={() => setPendingFile(null)} className="w-7 h-7 flex items-center justify-center bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-500 rounded-full font-bold text-xs">✕</button>
               </div>
             )}
 
-            <div className="bg-white/90 backdrop-blur-lg border-t border-gray-100/50 p-3 sm:p-5 flex items-center gap-2 sm:gap-4 z-10 shrink-0 mb-safe">
-              <FileUploadButton folder={activeGroup ? 'groups' : 'direct'} onFileReady={(file) => setPendingFile(file)} />
-              <input value={input} onChange={e => { setInput(e.target.value); handleTyping(); }} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={pendingFile ? 'Caption...' : 'Message...'} className="flex-1 bg-gray-50 border border-gray-200/60 rounded-full px-5 sm:px-6 py-3 sm:py-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:bg-white transition-all text-sm sm:text-[15px] font-medium placeholder-gray-400 shadow-inner" />
-              <button onClick={sendMessage} className="bg-gradient-to-tr from-indigo-600 to-purple-600 text-white w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center hover:shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all text-xl shadow-md shrink-0"><svg className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5 sm:ml-1 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></button>
+            {/* FIX 3: pb-[calc(env(safe-area-inset-bottom)+0.5rem)] ensures the text input isn't hidden under the iPhone home bar */}
+            <div className="bg-white/90 backdrop-blur-lg border-t border-gray-100/50 p-2 sm:p-4 z-10 shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+              <div className="flex items-center gap-2">
+                <FileUploadButton folder={activeGroup ? 'groups' : 'direct'} onFileReady={(file) => setPendingFile(file)} />
+                {/* FIX 2: text-[16px] for iPhone to prevent zoom */}
+                <input value={input} onChange={e => { setInput(e.target.value); handleTyping(); }} onKeyDown={e => e.key === 'Enter' && sendMessage()} placeholder={pendingFile ? 'Caption...' : 'Message...'} className="flex-1 bg-gray-50 border border-gray-200/60 rounded-full px-4 py-2.5 sm:py-3.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:bg-white transition-all text-[16px] md:text-sm font-medium placeholder-gray-400 shadow-inner" />
+                <button onClick={sendMessage} className="bg-gradient-to-tr from-indigo-600 to-purple-600 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center hover:shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 transition-all text-xl shadow-md shrink-0"><svg className="w-5 h-5 ml-0.5 transform -rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></button>
+              </div>
             </div>
           </div>
         ) : (
-          <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-white/40">
+          <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-white/40 h-full">
             <div className="w-28 h-28 bg-gradient-to-tr from-indigo-100 to-purple-100 rounded-[2rem] flex items-center justify-center shadow-inner mb-6 transform -rotate-6 transition-all hover:rotate-0"><span className="text-6xl transform rotate-6 hover:rotate-0">💬</span></div>
             <h2 className="text-3xl font-extrabold text-slate-800">Welcome to ChatApp</h2>
             <p className="text-slate-500 font-medium mt-2">Select a conversation or create a group to start</p>
