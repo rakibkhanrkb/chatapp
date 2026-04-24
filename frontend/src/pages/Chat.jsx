@@ -85,19 +85,52 @@ export default function Chat() {
   async function loadSuggestedUsers() { try { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users'); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
   async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users?q=${q}'); setSearchResults(data.filter(u => u.id !== user.id)); }
 
+ // --- DIRECT CHAT OPEN FUNCTION ---
   async function openDirectChat(otherUser) {
-    setSearchQuery(''); setSearchResults([]); setActiveGroup(null); setActiveUser(otherUser);
-    const { data: conv } = await axios.post('https://chatapp-812b.onrender.com/api/messages/conversation', { user1Id: user.id, user2Id: otherUser.id });
-    setActiveConv(conv);
-    const { data: msgs } = await axios.get('https://chatapp-812b.onrender.com/api/messages/messages/${conv.id}'); setMessages(msgs); loadConversations();
+    setSearchQuery(''); 
+    setSearchResults([]); 
+    setActiveGroup(null); 
+    setActiveUser(otherUser);
+    
+    try {
+      // 1. Get or Create Conversation
+      const { data: conv } = await axios.post('https://chatapp-812b.onrender.com/api/messages/conversation', { 
+        user1Id: user.id, 
+        user2Id: otherUser.id 
+      });
+      setActiveConv(conv);
+      
+      // 2. Fetch all previous messages from Database
+      const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/messages/${conv.id}`); 
+      
+      // 3. Set the messages to the screen
+      setMessages(msgs); 
+      
+      // 4. Update the sidebar list
+      loadConversations();
+    } catch (err) {
+      console.error("Error opening chat:", err);
+    }
   }
 
+  // --- GROUP CHAT OPEN FUNCTION ---
   async function openGroupChat(group) {
-    setActiveConv(null); setActiveUser(null); setActiveGroup(group);
-    socket.emit('join_group', group.id);
-    const { data: msgs } = await axios.get('https://chatapp-812b.onrender.com/api/groups/${group.id}/messages'); setMessages(msgs);
+    setActiveConv(null); 
+    setActiveUser(null); 
+    setActiveGroup(group);
+    
+    try {
+      socket.emit('join_group', group.id);
+      
+      // Fetch all previous group messages from Database
+      const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/groups/${group.id}/messages`); 
+      
+      // Set the messages to the screen
+      setMessages(msgs);
+    } catch (err) {
+      console.error("Error opening group chat:", err);
+    }
   }
-
   function handleTyping() {
     if (!activeConv) return;
     socket.emit('typing', { conversationId: activeConv.id, senderId: user.id, receiverId: activeUser?.id });
