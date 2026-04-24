@@ -14,7 +14,7 @@ router.get('/users', async (req, res) => {
     .from('profiles')
     .select('id, username, full_name, avatar_url, is_online, last_seen');
 
-  // যদি সার্চ কুয়েরি থাকে, তবে শুধু ম্যাচ করা ইউজার আনবে
+  // যদি সার্চ কুয়েরি থাকে, তবে শুধু ম্যাচ করা ইউজার আনবে
   if (q) {
     query = query.ilike('username', `%${q}%`);
   }
@@ -48,17 +48,34 @@ router.post('/conversation', async (req, res) => {
   res.json(data);
 });
 
-// আমার সব conversations
+// আমার সব conversations (আনরিড মেসেজ কাউন্ট সহ)
 router.get('/conversations/:userId', async (req, res) => {
-  const { data } = await supabase
+  const { userId } = req.params;
+
+  const { data: convs, error } = await supabase
     .from('conversations')
     .select(`*, 
       user1:profiles!conversations_user1_id_fkey(id, username, full_name, is_online),
       user2:profiles!conversations_user2_id_fkey(id, username, full_name, is_online)
     `)
-    .or(`user1_id.eq.${req.params.userId},user2_id.eq.${req.params.userId}`)
+    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
     .order('last_message_at', { ascending: false });
-  res.json(data || []);
+
+  if (error || !convs) return res.json([]);
+
+  // প্রতিটি কনভারসেশনের জন্য আনরিড (is_read = false) মেসেজের সংখ্যা বের করা
+  const conversationsWithUnread = await Promise.all(convs.map(async (conv) => {
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('conversation_id', conv.id)
+      .eq('is_read', false)
+      .neq('sender_id', userId); // নিজের পাঠানো মেসেজ কাউন্ট হবে না
+
+    return { ...conv, unread_count: count || 0 };
+  }));
+
+  res.json(conversationsWithUnread);
 });
 
 // নির্দিষ্ট conversation এর messages
@@ -69,6 +86,23 @@ router.get('/messages/:conversationId', async (req, res) => {
     .eq('conversation_id', req.params.conversationId)
     .order('created_at', { ascending: true });
   res.json(data || []);
+});
+
+// মেসেজ 'Read' (পড়া হয়েছে) হিসেবে মার্ক করা
+router.put('/read/:conversationId/:userId', async (req, res) => {
+  const { conversationId, userId } = req.params;
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .update({ is_read: true })
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', userId); // শুধু অন্য পক্ষের মেসেজগুলো 'read' হবে
+
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Delete a direct message
