@@ -22,7 +22,7 @@ const supabase = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: process.env.FRONTEND_URL }));
 app.use(express.json({ limit: '200mb' })); 
 app.use(express.urlencoded({ limit: '200mb', extended: true })); // Add this just in case
 app.use('/api/auth', authRouter);
