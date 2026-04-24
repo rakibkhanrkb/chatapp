@@ -13,7 +13,7 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post('http://localhost:3001/api/auth/register', form);
+      await axios.post('https://chatapp-812b.onrender.com/api/auth/register', form);
       setSuccess('একাউন্ট সফলভাবে তৈরি হয়েছে!');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
