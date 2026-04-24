@@ -6,7 +6,7 @@ import FileUploadButton from '../components/FileUploadButton';
 import CreateGroupModal from '../components/CreateGroupModal';
 import CallModal from '../components/CallModal';
 
-const socket = io('http://localhost:3001');
+const socket = io('https://chatapp-812b.onrender.com');
 
 export default function Chat() {
   const user = JSON.parse(localStorage.getItem('user'));
