@@ -80,22 +80,22 @@ export default function Chat() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, typing]);
 
-  async function loadConversations() { const { data } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/conversations/${user.id}`); setConversations(data); }
-  async function loadGroups() { const { data } = await axios.get(`https://chatapp-812b.onrender.com/api/groups/my/${user.id}`); setGroups(data); }
-  async function loadSuggestedUsers() { try { const { data } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/users`); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
-  async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/users?q=${q}`); setSearchResults(data.filter(u => u.id !== user.id)); }
+  async function loadConversations() { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/conversations/${user.id}'); setConversations(data); }
+  async function loadGroups() { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/groups/my/${user.id}'); setGroups(data); }
+  async function loadSuggestedUsers() { try { const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users'); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
+  async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get('https://chatapp-812b.onrender.com/api/messages/users?q=${q}'); setSearchResults(data.filter(u => u.id !== user.id)); }
 
   async function openDirectChat(otherUser) {
     setSearchQuery(''); setSearchResults([]); setActiveGroup(null); setActiveUser(otherUser);
     const { data: conv } = await axios.post('https://chatapp-812b.onrender.com/api/messages/conversation', { user1Id: user.id, user2Id: otherUser.id });
     setActiveConv(conv);
-    const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/messages/messages/${conv.id}`); setMessages(msgs); loadConversations();
+    const { data: msgs } = await axios.get('https://chatapp-812b.onrender.com/api/messages/messages/${conv.id}'); setMessages(msgs); loadConversations();
   }
 
   async function openGroupChat(group) {
     setActiveConv(null); setActiveUser(null); setActiveGroup(group);
     socket.emit('join_group', group.id);
-    const { data: msgs } = await axios.get(`https://chatapp-812b.onrender.com/api/groups/${group.id}/messages`); setMessages(msgs);
+    const { data: msgs } = await axios.get('https://chatapp-812b.onrender.com/api/groups/${group.id}/messages'); setMessages(msgs);
   }
 
   function handleTyping() {
@@ -118,10 +118,10 @@ export default function Chat() {
     if (!window.confirm("আপনি কি সত্যিই এই মেসেজটি মুছে ফেলতে চান?")) return;
     try {
       if (activeConv) {
-        await axios.delete(`https://chatapp-812b.onrender.com/api/messages/${msg.id}`);
+        await axios.delete('https://chatapp-812b.onrender.com/api/messages/${msg.id}');
         socket.emit('delete_message', { messageId: msg.id, receiverId: activeUser?.id });
       } else if (activeGroup) {
-        await axios.delete(`https://chatapp-812b.onrender.com/api/groups/messages/${msg.id}`);
+        await axios.delete('https://chatapp-812b.onrender.com/api/groups/messages/${msg.id}');
         socket.emit('delete_group_message', { messageId: msg.id, groupId: activeGroup.id });
       }
       setMessages(messages.filter(m => m.id !== msg.id));
