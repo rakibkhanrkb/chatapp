@@ -233,13 +233,31 @@ async function openDirectChat(otherUser) {
               </div>
             )}
 
-            {/* RECENT DIRECT CHATS */}
+         {/* RECENT DIRECT CHATS */}
             {tab === 'direct' && conversations.map(conv => {
               const other = getOtherUser(conv);
               return (
                 <div key={conv.id} onClick={() => openDirectChat(other)} className={`flex items-center gap-3 p-3 mb-1.5 rounded-2xl cursor-pointer transition-all border border-transparent ${activeConv?.id === conv.id ? 'bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] border-gray-100' : 'hover:bg-white/50'}`}>
-                  <div className="relative shrink-0"><div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold shadow-sm">{other?.full_name?.[0]}</div>{other?.is_online && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white shadow-sm" />}</div>
-                  <div className="flex-1 min-w-0"><p className="font-bold text-sm text-gray-800 truncate">{other?.full_name}</p><p className="text-xs text-gray-500 truncate mt-0.5">{conv.last_message || 'Start chatting'}</p></div>
+                  
+                  {/* Profile Picture */}
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold shadow-sm">{other?.full_name?.[0]}</div>
+                    {other?.is_online && <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-green-400 border-2 border-white shadow-sm" />}
+                  </div>
+                  
+                  {/* Name and Last Message */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm truncate ${conv.unread_count > 0 ? 'font-extrabold text-gray-900' : 'font-bold text-gray-800'}`}>{other?.full_name}</p>
+                    <p className={`text-xs truncate mt-0.5 ${conv.unread_count > 0 ? 'font-bold text-indigo-600' : 'text-gray-500'}`}>{conv.last_message || 'Start chatting'}</p>
+                  </div>
+
+                  {/* 🔴 আনরিড মেসেজ ব্যাজ (Unread Message Badge) 🔴 */}
+                  {conv.unread_count > 0 && (
+                    <div className="bg-gradient-to-tr from-red-500 to-pink-500 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-md shadow-red-200 animate-pulse shrink-0">
+                      {conv.unread_count}
+                    </div>
+                  )}
+
                 </div>
               );
             })}
