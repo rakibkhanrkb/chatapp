@@ -10,25 +10,47 @@ import { createClient } from '@supabase/supabase-js';
 import adminRouter from './routes/admin.js';
 
 dotenv.config();
+
 const app = express();
+
+// --- CORS Configuration ---
+// এখানে Localhost এবং Vercel উভয়ের লিংক দেওয়া হয়েছে
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://chatapp-ebon-kappa.vercel.app',
+  process.env.FRONTEND_URL // যদি Render এ সেট করা থাকে
+];
+
+app.use(cors({ 
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+
+app.use(express.json({ limit: '200mb' })); 
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
+
+app.use('/api/auth', authRouter);
+app.use('/api/messages', messagesRouter);
+app.use('/api/groups', groupsRouter);
+app.use('/api/admin', adminRouter);
+
 const httpServer = createServer(app);
+
+// --- Socket.io Configuration ---
 const io = new Server(httpServer, {
-  cors: { origin: 'http://localhost:5173', methods: ['GET', 'POST'] },
+  cors: { 
+    origin: allowedOrigins, 
+    methods: ['GET', 'POST'] 
+  },
   maxHttpBufferSize: 10e6
 });
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY,
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
-
-app.use(cors({ origin: process.env.FRONTEND_URL }));
-app.use(express.json({ limit: '200mb' })); 
-app.use(express.urlencoded({ limit: '200mb', extended: true })); // Add this just in case
-app.use('/api/auth', authRouter);
-app.use('/api/messages', messagesRouter);
-app.use('/api/groups', groupsRouter);
-app.use('/api/admin', adminRouter);
 
 const onlineUsers = new Map();
 
@@ -76,7 +98,7 @@ io.on('connection', (socket) => {
     io.to(`group_${groupId}`).emit('receive_group_message', message);
   });
 
-// --- Message Delete Events ---
+  // --- Message Delete Events ---
   socket.on('delete_message', ({ messageId, receiverId }) => {
     const receiverSocketId = onlineUsers.get(receiverId);
     if (receiverSocketId) {
@@ -99,7 +121,7 @@ io.on('connection', (socket) => {
     if (receiverSocketId) io.to(receiverSocketId).emit('user_stop_typing', { conversationId });
   });
 
-// --- WebRTC Audio/Video Call Signaling ---
+  // --- WebRTC Audio/Video Call Signaling ---
   socket.on('call_user', ({ userToCall, signalData, from, name, type }) => {
     const receiverSocketId = onlineUsers.get(userToCall);
     if (receiverSocketId) {
@@ -140,4 +162,4 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(process.env.PORT || 3001, () => console.log('🚀 Server running on port 3001'));
+httpServer.listen(process.env.PORT || 3001, () => console.log(`🚀 Server running on port ${process.env.PORT || 3001}`));
