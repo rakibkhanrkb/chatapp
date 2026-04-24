@@ -85,14 +85,37 @@ export default function Chat() {
   async function loadSuggestedUsers() { try { const { data } = await axios.get(`${BACKEND_URL}/api/messages/users`); setSuggestedUsers(data.filter(u => u.id !== user.id)); } catch (err) {} }
   async function searchUsers(q) { setSearchQuery(q); if (!q) return setSearchResults([]); const { data } = await axios.get(`${BACKEND_URL}/api/messages/users?q=${q}`); setSearchResults(data.filter(u => u.id !== user.id)); }
 
-  async function openDirectChat(otherUser) {
-    setSearchQuery(''); setSearchResults([]); setActiveGroup(null); setActiveUser(otherUser);
+async function openDirectChat(otherUser) {
+    // ১. সার্চ এবং অন্যান্য স্টেট ক্লিয়ার করা
+    setSearchQuery(''); 
+    setSearchResults([]); 
+    setActiveGroup(null); 
+    setActiveUser(otherUser);
+    
     try {
-      const { data: conv } = await axios.post(`${BACKEND_URL}/api/messages/conversation`, { user1Id: user.id, user2Id: otherUser.id });
+      // ২. কনভারসেশন তৈরি বা লোড করা
+      const { data: conv } = await axios.post(`${BACKEND_URL}/api/messages/conversation`, { 
+        user1Id: user.id, 
+        user2Id: otherUser.id 
+      });
       setActiveConv(conv);
-      const { data: msgs } = await axios.get(`${BACKEND_URL}/api/messages/messages/${conv.id}`); setMessages(msgs); 
-      loadConversations();
-    } catch (err) { console.error("Error opening chat:", err); }
+      
+      // ৩. ডাটাবেস থেকে সব মেসেজ লোড করা
+      const { data: msgs } = await axios.get(`${BACKEND_URL}/api/messages/messages/${conv.id}`); 
+      setMessages(msgs); 
+
+      // ৪. ডাটাবেসে মেসেজগুলোকে 'Read' হিসেবে মার্ক করা
+      // (এই কলটি ডাটাবেসে is_read = true করে দেবে)
+      await axios.put(`${BACKEND_URL}/api/messages/read/${conv.id}/${user.id}`);
+      
+      // ৫. সাইডবারের কনভারসেশন লিস্ট আপডেট করা (যাতে কাউন্ট 0 হয়ে যায়)
+      setConversations(prev => prev.map(c => 
+        c.id === conv.id ? { ...c, unread_count: 0 } : c
+      ));
+      
+    } catch (err) { 
+      console.error("Error opening chat:", err); 
+    }
   }
 
   async function openGroupChat(group) {
