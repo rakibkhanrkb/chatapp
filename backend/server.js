@@ -17,7 +17,7 @@ const app = express();
 // এখানে Localhost এবং Vercel উভয়ের লিংক দেওয়া হয়েছে
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://chatapp-ebon-kappa.vercel.app',
+  'https://chatapp-e.vercel.app',
   process.env.FRONTEND_URL // যদি Render এ সেট করা থাকে
 ];
 
