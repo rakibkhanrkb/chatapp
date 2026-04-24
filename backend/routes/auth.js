@@ -25,8 +25,8 @@ router.post('/register', async (req, res) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return res.status(400).json({ error: error.message });
 
-    // ৩. Profile তৈরি
-    const { error: profileError } = await supabase.from('profiles').insert([
+    // ৩. Profile তৈরি (এখানে supabase এর বদলে adminClient ব্যবহার করা হয়েছে RLS বাইপাস করার জন্য)
+    const { error: profileError } = await adminClient.from('profiles').insert([
       { id: data.user.id, username, full_name, role: 'user' }
     ]);
     if (profileError) return res.status(400).json({ error: profileError.message });
