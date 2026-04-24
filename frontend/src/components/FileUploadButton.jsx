@@ -24,7 +24,7 @@ export default function FileUploadButton({ onFileReady, folder = 'direct' }) {
         setUploading(true);
         setProgress(0);
 
-        const { data } = await axios.post('http://localhost:3001/api/groups/upload', {
+        const { data } = await axios.post('https://chatapp-812b.onrender.com/api/groups/upload', {
           fileName: file.name,
           fileData: base64,
           fileType: file.type,
