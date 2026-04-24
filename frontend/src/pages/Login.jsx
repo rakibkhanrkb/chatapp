@@ -13,7 +13,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await axios.post('http://localhost:3001/api/auth/login', form);
+      const { data } = await axios.post('https://chatapp-812b.onrender.com/api/auth/login', form);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
       navigate('/');
